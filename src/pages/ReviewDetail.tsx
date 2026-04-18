@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, AlertTriangle, Shield, Zap, Lightbulb, Code2, CheckCircle, Share2, Copy, Link, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Shield, Zap, Lightbulb, Code2, CheckCircle, Share2, Copy, Link, X, Loader2, Download, FileText, FileJson } from 'lucide-react';
 import { useReview } from '../hooks/useReviews';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -42,6 +42,8 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [sharingLoading, setSharingLoading] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
 
   const handleShare = async () => {
     if (!user || !review) return;
@@ -64,6 +66,121 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
     await navigator.clipboard.writeText(shareLink);
     setCopiedShareLink(true);
     setTimeout(() => setCopiedShareLink(false), 2000);
+  };
+
+  const handleCopyCode = async () => {
+    if (!review?.code) return;
+    await navigator.clipboard.writeText(review.code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleExportJSON = () => {
+    if (!review) return;
+    const exportData = {
+      title: review.title,
+      language: review.language,
+      overall_score: review.overall_score,
+      maintainability_score: review.maintainability_score,
+      complexity_score: review.complexity_score,
+      summary: review.summary,
+      issues: review.issues,
+      security_issues: review.security_issues,
+      suggestions: review.suggestions,
+      performance_notes: review.performance_notes,
+      lines_of_code: review.lines_of_code,
+      created_at: review.created_at,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${review.title.replace(/\s+/g, '-').toLowerCase()}-review.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportMarkdown = () => {
+    if (!review) return;
+    const issues = (review.issues as unknown as CodeIssue[]) || [];
+    const suggestions = (review.suggestions as unknown as CodeSuggestion[]) || [];
+    const secIssues = (review.security_issues as unknown as SecurityIssue[]) || [];
+    const perfNotes = (review.performance_notes as unknown as PerformanceNote[]) || [];
+
+    const lines: string[] = [
+      `# Code Review: ${review.title}`,
+      '',
+      `**Language:** ${review.language}  `,
+      `**Lines of Code:** ${review.lines_of_code}  `,
+      `**Date:** ${formatDate(review.created_at)}  `,
+      `**Overall Score:** ${review.overall_score}/100  `,
+      `**Maintainability:** ${review.maintainability_score}/100  `,
+      `**Simplicity:** ${Math.max(0, 100 - review.complexity_score)}/100`,
+      '',
+      '## Summary',
+      '',
+      review.summary,
+      '',
+    ];
+
+    if (issues.length > 0) {
+      lines.push('## Code Issues', '');
+      issues.forEach((issue, i) => {
+        lines.push(`### ${i + 1}. ${issue.title}`);
+        lines.push(`**Severity:** ${issue.severity} | **Type:** ${issue.type}${issue.line ? ` | **Line:** ${issue.line}` : ''}`);
+        lines.push('');
+        lines.push(issue.description);
+        lines.push('');
+        lines.push(`> **Fix:** ${issue.suggestion}`);
+        lines.push('');
+      });
+    }
+
+    if (secIssues.length > 0) {
+      lines.push('## Security Issues', '');
+      secIssues.forEach((issue, i) => {
+        lines.push(`### ${i + 1}. ${issue.title}`);
+        lines.push(`**Severity:** ${issue.severity}${issue.cwe ? ` | **CWE:** ${issue.cwe}` : ''}`);
+        lines.push('');
+        lines.push(issue.description);
+        lines.push('');
+        lines.push(`> **Remediation:** ${issue.fix}`);
+        lines.push('');
+      });
+    }
+
+    if (suggestions.length > 0) {
+      lines.push('## Suggestions', '');
+      suggestions.forEach((s, i) => {
+        lines.push(`### ${i + 1}. ${s.title}`);
+        lines.push(`**Category:** ${s.category} | **Impact:** ${s.impact}`);
+        lines.push('');
+        lines.push(s.description);
+        lines.push('');
+      });
+    }
+
+    if (perfNotes.length > 0) {
+      lines.push('## Performance Notes', '');
+      perfNotes.forEach((note, i) => {
+        lines.push(`### ${i + 1}. ${note.title}`);
+        lines.push(`**Impact:** ${note.impact}`);
+        lines.push('');
+        lines.push(note.description);
+        lines.push('');
+        lines.push(`> **Recommendation:** ${note.recommendation}`);
+        lines.push('');
+      });
+    }
+
+    const md = lines.join('\n');
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${review.title.replace(/\s+/g, '-').toLowerCase()}-review.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -99,13 +216,42 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
           <ArrowLeft size={15} />
           Back to history
         </button>
-        <button
-          onClick={handleShare}
-          className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-medium transition-all hover:bg-white"
-        >
-          <Share2 size={14} />
-          Share
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(p => !p)}
+              className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-medium transition-all hover:bg-white"
+            >
+              <Download size={14} />
+              Export
+            </button>
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 min-w-[160px] py-1">
+                <button
+                  onClick={() => { handleExportJSON(); setShowExportMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <FileJson size={14} className="text-slate-400" />
+                  Export as JSON
+                </button>
+                <button
+                  onClick={() => { handleExportMarkdown(); setShowExportMenu(false); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  <FileText size={14} className="text-slate-400" />
+                  Export as Markdown
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-medium transition-all hover:bg-white"
+          >
+            <Share2 size={14} />
+            Share
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
@@ -282,7 +428,14 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
         <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
           <Code2 size={16} className="text-slate-500" />
           <h3 className="font-semibold text-slate-900 text-sm">Submitted Code</h3>
-          <span className="ml-auto text-xs text-slate-400">{review.lines_of_code} lines</span>
+          <span className="text-xs text-slate-400">{review.lines_of_code} lines</span>
+          <button
+            onClick={handleCopyCode}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all hover:bg-slate-50"
+          >
+            {copiedCode ? <CheckCircle size={12} className="text-emerald-500" /> : <Copy size={12} />}
+            {copiedCode ? 'Copied!' : 'Copy code'}
+          </button>
         </div>
         <pre className="p-5 overflow-x-auto text-xs font-mono text-slate-700 bg-slate-50 rounded-b-xl leading-relaxed max-h-96">
           <code>{review.code}</code>

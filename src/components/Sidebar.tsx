@@ -78,7 +78,10 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
               <span className="text-white text-xs font-semibold">Upgrade to Pro</span>
             </div>
             <p className="text-blue-100 text-xs leading-tight mb-2">Unlimited reviews & priority AI</p>
-            <button className="w-full bg-white text-blue-700 text-xs font-semibold py-1.5 rounded-md hover:bg-blue-50 transition-colors">
+            <button
+              onClick={() => onNavigate('settings')}
+              className="w-full bg-white text-blue-700 text-xs font-semibold py-1.5 rounded-md hover:bg-blue-50 transition-colors"
+            >
               Upgrade Now
             </button>
           </div>

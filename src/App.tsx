@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
@@ -7,6 +7,7 @@ import NewReview from './pages/NewReview';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import ReviewDetail from './pages/ReviewDetail';
+import SharedReview from './pages/SharedReview';
 import AppLayout from './components/AppLayout';
 
 type Page = 'dashboard' | 'new-review' | 'history' | 'settings';
@@ -17,6 +18,15 @@ function AppContent() {
   const [page, setPage] = useState<Page>('dashboard');
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [showReviewDetail, setShowReviewDetail] = useState(false);
+  const [sharedToken, setSharedToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/^\/shared\/([^/]+)$/);
+    if (match) {
+      setSharedToken(match[1]);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -26,6 +36,19 @@ function AppContent() {
           <p className="text-slate-400 text-sm">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  if (sharedToken) {
+    return (
+      <SharedReview
+        token={sharedToken}
+        onGetStarted={() => {
+          setSharedToken(null);
+          window.history.pushState({}, '', '/');
+          setShowAuth(true);
+        }}
+      />
     );
   }
 

@@ -146,7 +146,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             <p className="text-sm font-semibold text-amber-900">Monthly review limit reached</p>
             <p className="text-xs text-amber-700 mt-0.5">You've used all 10 free reviews this month. Upgrade to Pro for unlimited reviews.</p>
           </div>
-          <button className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors shrink-0">
+          <button onClick={() => onNavigate('settings')} className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg transition-colors shrink-0">
             Upgrade Now
           </button>
         </div>
@@ -157,7 +157,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <Zap size={16} className="text-blue-600 mt-0.5 shrink-0" />
           <p className="text-sm text-blue-800">
             <strong>{reviewsRemaining} review{reviewsRemaining !== 1 ? 's' : ''} remaining</strong> this month on the free plan.{' '}
-            <button className="underline font-semibold hover:text-blue-900">Upgrade to Pro</button> for unlimited.
+            <button onClick={() => onNavigate('settings')} className="underline font-semibold hover:text-blue-900">Upgrade to Pro</button> for unlimited.
           </p>
         </div>
       )}

@@ -118,6 +118,8 @@ const stats = [
 export default function Landing({ onGetStarted }: LandingProps) {
   const [showDemo, setShowDemo] = useState(false);
   const [demoStep, setDemoStep] = useState<'code' | 'analyzing' | 'results'>('code');
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const runDemo = () => {
     setShowDemo(true);
@@ -349,12 +351,88 @@ export default function Landing({ onGetStarted }: LandingProps) {
           </div>
           <p className="text-slate-500 text-sm">© 2025 CodeSense. All rights reserved.</p>
           <div className="flex gap-6 text-slate-500 text-sm">
-            <a href="#" className="hover:text-slate-900 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-slate-900 transition-colors">Terms</a>
-            <a href="#" className="hover:text-slate-900 transition-colors">Contact</a>
+            <button onClick={() => setShowPrivacy(true)} className="hover:text-slate-900 transition-colors">Privacy</button>
+            <button onClick={() => setShowTerms(true)} className="hover:text-slate-900 transition-colors">Terms</button>
+            <a href="mailto:hello@codesense.ai" className="hover:text-slate-900 transition-colors">Contact</a>
           </div>
         </div>
       </footer>
+
+      {showPrivacy && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-bold text-slate-900 text-lg">Privacy Policy</h3>
+              <button onClick={() => setShowPrivacy(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 text-sm text-slate-600 space-y-4 leading-relaxed">
+              <p className="text-xs text-slate-400">Last updated: January 2025</p>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Data We Collect</h4>
+                <p>We collect your email address for authentication, and code snippets you submit for review. Code is processed by Claude AI and stored securely to provide your review history.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">How We Use Your Data</h4>
+                <p>Your code is analyzed to provide AI-powered reviews. We never sell your data to third parties. Code snippets are stored only to power your personal review history and can be deleted at any time.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Data Retention</h4>
+                <p>Your account data and review history are retained until you delete them. You can delete individual reviews or your entire account from the Settings page.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Security</h4>
+                <p>All data is encrypted in transit and at rest. We use Supabase for secure database storage with row-level security policies ensuring only you can access your data.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Contact</h4>
+                <p>For privacy concerns, contact us at <a href="mailto:privacy@codesense.ai" className="text-blue-600 hover:underline">privacy@codesense.ai</a>.</p>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTerms && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl">
+              <h3 className="font-bold text-slate-900 text-lg">Terms of Service</h3>
+              <button onClick={() => setShowTerms(false)} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-6 py-5 text-sm text-slate-600 space-y-4 leading-relaxed">
+              <p className="text-xs text-slate-400">Last updated: January 2025</p>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Acceptance of Terms</h4>
+                <p>By using CodeSense, you agree to these terms. If you do not agree, please do not use our service.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Free Plan</h4>
+                <p>Free accounts receive 10 code reviews per month. Reviews reset on the first of each month. Free plan reviews are intended for personal, non-commercial use.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Acceptable Use</h4>
+                <p>You may not use CodeSense to review malicious code, attempt to circumvent usage limits, or abuse the API. We reserve the right to suspend accounts that violate these terms.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Intellectual Property</h4>
+                <p>You retain full ownership of all code you submit. CodeSense claims no rights to your code. Review results are provided for your personal use.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Disclaimer</h4>
+                <p>CodeSense is provided as-is. AI-generated reviews are suggestions and should not replace human code review for critical systems. We are not liable for bugs or security issues that may go undetected.</p>
+              </section>
+              <section>
+                <h4 className="font-semibold text-slate-900 mb-2">Contact</h4>
+                <p>For terms questions, contact <a href="mailto:legal@codesense.ai" className="text-blue-600 hover:underline">legal@codesense.ai</a>.</p>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDemo && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">

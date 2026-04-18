@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Search, Trash2, ArrowRight, Clock, Code2, Filter, AlertTriangle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Search, Trash2, ArrowRight, Clock, Code2, Filter, AlertTriangle, CheckSquare, Square, Download, Import as SortAsc, Dessert as SortDesc, ChevronDown } from 'lucide-react';
 import { useReviews } from '../hooks/useReviews';
 import ScoreRing from '../components/ScoreRing';
 
@@ -13,6 +13,9 @@ const LANGUAGES: Record<string, string> = {
   go: 'Go', rust: 'Rust', cpp: 'C++', csharp: 'C#', php: 'PHP', ruby: 'Ruby',
   swift: 'Swift', kotlin: 'Kotlin', sql: 'SQL', html: 'HTML', css: 'CSS', bash: 'Bash', other: 'Other',
 };
+
+type SortField = 'date' | 'score' | 'language' | 'issues';
+type SortDir = 'asc' | 'desc';
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -30,33 +33,128 @@ export default function History({ selectedReviewId, onViewReview }: HistoryProps
   const { reviews, loading, deleteReview } = useReviews();
   const [search, setSearch] = useState('');
   const [filterLang, setFilterLang] = useState('all');
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
 
   const langs = [...new Set(reviews.map(r => r.language))];
 
-  const filtered = reviews.filter(r => {
-    const matchSearch = r.title.toLowerCase().includes(search.toLowerCase()) ||
-      r.language.toLowerCase().includes(search.toLowerCase());
-    const matchLang = filterLang === 'all' || r.language === filterLang;
-    return matchSearch && matchLang;
-  });
+  const filtered = useMemo(() => {
+    let result = reviews.filter(r => {
+      const matchSearch = r.title.toLowerCase().includes(search.toLowerCase()) ||
+        r.language.toLowerCase().includes(search.toLowerCase());
+      const matchLang = filterLang === 'all' || r.language === filterLang;
+      return matchSearch && matchLang;
+    });
+
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === 'date') cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      else if (sortField === 'score') cmp = a.overall_score - b.overall_score;
+      else if (sortField === 'language') cmp = a.language.localeCompare(b.language);
+      else if (sortField === 'issues') cmp = (a.issues as unknown[]).length - (b.issues as unknown[]).length;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+    return result;
+  }, [reviews, search, filterLang, sortField, sortDir]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm('Delete this review? This cannot be undone.')) return;
     setDeletingId(id);
     await deleteReview(id);
+    setSelected(prev => { const s = new Set(prev); s.delete(id); return s; });
     setDeletingId(null);
   };
 
+  const toggleSelect = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    setSelected(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === filtered.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filtered.map(r => r.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Delete ${selected.size} review${selected.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    for (const id of selected) {
+      await deleteReview(id);
+    }
+    setSelected(new Set());
+    setBulkDeleting(false);
+  };
+
+  const handleExportCSV = () => {
+    const rows = filtered.map(r => [
+      `"${r.title.replace(/"/g, '""')}"`,
+      r.language,
+      r.overall_score,
+      r.lines_of_code,
+      (r.issues as unknown[]).length,
+      (r.security_issues as unknown[]).length,
+      r.status,
+      new Date(r.created_at).toISOString(),
+    ].join(','));
+    const csv = ['Title,Language,Score,Lines,Issues,Security Issues,Status,Date', ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `codesense-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+    setShowSortMenu(false);
+  };
+
+  const sortLabels: Record<SortField, string> = {
+    date: 'Date', score: 'Score', language: 'Language', issues: 'Issues',
+  };
+
+  const allSelected = filtered.length > 0 && selected.size === filtered.length;
+  const someSelected = selected.size > 0;
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">Review History</h2>
-        <p className="text-slate-500 mt-1">{reviews.length} total review{reviews.length !== 1 ? 's' : ''}</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Review History</h2>
+          <p className="text-slate-500 mt-1">{reviews.length} total review{reviews.length !== 1 ? 's' : ''}</p>
+        </div>
+        {filtered.length > 0 && (
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-medium transition-all hover:bg-white"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -78,7 +176,50 @@ export default function History({ selectedReviewId, onViewReview }: HistoryProps
             {langs.map(l => <option key={l} value={l}>{LANGUAGES[l] || l}</option>)}
           </select>
         </div>
+        <div className="relative">
+          <button
+            onClick={() => setShowSortMenu(p => !p)}
+            className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+          >
+            {sortDir === 'asc' ? <SortAsc size={14} /> : <SortDesc size={14} />}
+            {sortLabels[sortField]}
+            <ChevronDown size={13} className="text-slate-400" />
+          </button>
+          {showSortMenu && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 min-w-[140px] py-1">
+              {(Object.keys(sortLabels) as SortField[]).map(f => (
+                <button
+                  key={f}
+                  onClick={() => handleSort(f)}
+                  className={`w-full text-left px-4 py-2 text-sm transition-colors ${sortField === f ? 'text-blue-600 font-semibold bg-blue-50' : 'text-slate-700 hover:bg-slate-50'}`}
+                >
+                  {sortLabels[f]}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {someSelected && (
+        <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+          <span className="text-sm font-medium text-blue-800">{selected.size} selected</span>
+          <button
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white text-xs font-semibold rounded-lg transition-colors"
+          >
+            <Trash2 size={12} />
+            {bulkDeleting ? 'Deleting...' : `Delete ${selected.size}`}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium ml-auto"
+          >
+            Deselect all
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -98,13 +239,30 @@ export default function History({ selectedReviewId, onViewReview }: HistoryProps
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-100 bg-slate-50">
+            <button
+              onClick={toggleSelectAll}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+              title={allSelected ? 'Deselect all' : 'Select all'}
+            >
+              {allSelected ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} />}
+            </button>
+            <span className="text-xs text-slate-500 font-medium">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+          </div>
           <ul className="divide-y divide-slate-100">
             {filtered.map(review => (
               <li key={review.id}>
                 <div
-                  className={`flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer group ${selectedReviewId === review.id ? 'bg-blue-50' : ''}`}
+                  className={`flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors cursor-pointer group ${selectedReviewId === review.id ? 'bg-blue-50' : ''} ${selected.has(review.id) ? 'bg-blue-50/60' : ''}`}
                   onClick={() => onViewReview(review.id)}
                 >
+                  <button
+                    onClick={e => toggleSelect(e, review.id)}
+                    className="text-slate-300 hover:text-slate-500 transition-colors shrink-0"
+                  >
+                    {selected.has(review.id) ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} />}
+                  </button>
+
                   {review.status === 'completed' ? (
                     <ScoreRing score={review.overall_score} size={48} strokeWidth={4} />
                   ) : review.status === 'pending' ? (

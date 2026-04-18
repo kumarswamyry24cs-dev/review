@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Code2, Wand2, AlertCircle, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Loader2, Code2, Wand2, AlertCircle, ChevronDown, CheckCircle2, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { reviewCodeWithAI, type ReviewProgress } from '../services/codeReviewService';
@@ -45,7 +45,7 @@ interface NewReviewProps {
 }
 
 export default function NewReview({ onReviewCreated }: NewReviewProps) {
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [language, setLanguage] = useState('javascript');
@@ -54,10 +54,25 @@ export default function NewReview({ onReviewCreated }: NewReviewProps) {
   const [step, setStep] = useState<'form' | 'analyzing'>('form');
   const [progress, setProgress] = useState<ReviewProgress | null>(null);
 
+  const FREE_LIMIT = 10;
+  const isFreePlan = profile?.plan === 'free';
+  const monthlyUsed = profile?.monthly_reviews_used ?? 0;
+  const isAtLimit = isFreePlan && monthlyUsed >= FREE_LIMIT;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) { setError('Please paste your code to review.'); return; }
     if (!user) return;
+
+    if (isAtLimit) {
+      setError('You have reached your 10 free reviews this month. Upgrade to Pro for unlimited reviews.');
+      return;
+    }
+
+    if (code.trim().length > 50000) {
+      setError('Code is too large. Please keep it under 50,000 characters.');
+      return;
+    }
 
     setError('');
     setLoading(true);
@@ -108,6 +123,7 @@ export default function NewReview({ onReviewCreated }: NewReviewProps) {
         .eq('id', reviewRow.id);
 
       await supabase.rpc('increment_reviews_count', { user_uuid: user.id });
+      await refreshProfile();
       onReviewCreated(reviewRow.id);
     } catch {
       await supabase.from('code_reviews').update({ status: 'failed' }).eq('id', reviewRow.id);
@@ -189,6 +205,25 @@ export default function NewReview({ onReviewCreated }: NewReviewProps) {
         <p className="text-slate-500 mt-1">Paste your code and our AI will provide a comprehensive review in seconds.</p>
       </div>
 
+      {isAtLimit && (
+        <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+          <AlertCircle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-900">Monthly review limit reached</p>
+            <p className="text-xs text-amber-700 mt-0.5">You've used all 10 free reviews this month. Upgrade to Pro for unlimited access.</p>
+          </div>
+        </div>
+      )}
+
+      {isFreePlan && !isAtLimit && monthlyUsed >= FREE_LIMIT - 2 && (
+        <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-3">
+          <AlertCircle size={15} className="text-blue-600 shrink-0" />
+          <p className="text-sm text-blue-800">
+            <strong>{FREE_LIMIT - monthlyUsed} review{FREE_LIMIT - monthlyUsed !== 1 ? 's' : ''} remaining</strong> this month on the free plan.
+          </p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row gap-4">
@@ -222,13 +257,25 @@ export default function NewReview({ onReviewCreated }: NewReviewProps) {
           <div className="relative">
             <div className="flex items-center justify-between px-6 pt-4 pb-2">
               <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Code</span>
-              <button
-                type="button"
-                onClick={() => setCode(SAMPLE_CODE)}
-                className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Load sample
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCode(SAMPLE_CODE)}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Load sample
+                </button>
+                {code && (
+                  <button
+                    type="button"
+                    onClick={() => setCode('')}
+                    className="text-xs text-slate-400 hover:text-slate-600 font-medium flex items-center gap-1"
+                  >
+                    <X size={11} />
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
             <textarea
               value={code}
@@ -260,7 +307,7 @@ export default function NewReview({ onReviewCreated }: NewReviewProps) {
           </p>
           <button
             type="submit"
-            disabled={loading || !code.trim()}
+            disabled={loading || !code.trim() || isAtLimit}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm transition-all shadow-sm hover:shadow-md"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Wand2 size={16} />}
