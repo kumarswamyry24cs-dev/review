@@ -1,5 +1,8 @@
-import { ArrowLeft, AlertTriangle, Shield, Zap, Lightbulb, Code2, CheckCircle, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, AlertTriangle, Shield, Zap, Lightbulb, Code2, CheckCircle, Share2, Copy, Link, X, Loader2 } from 'lucide-react';
 import { useReview } from '../hooks/useReviews';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import ScoreRing from '../components/ScoreRing';
 import SeverityBadge from '../components/SeverityBadge';
 import type { CodeIssue, CodeSuggestion, SecurityIssue, PerformanceNote } from '../lib/database.types';
@@ -33,7 +36,35 @@ function formatDate(dateStr: string) {
 }
 
 export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
+  const { user } = useAuth();
   const { review, loading } = useReview(reviewId);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  const handleShare = async () => {
+    if (!user || !review) return;
+    setShowShareModal(true);
+    if (shareLink) return;
+    setSharingLoading(true);
+    const { data, error } = await supabase
+      .from('review_shares')
+      .insert({ review_id: reviewId, shared_by_id: user.id })
+      .select('public_token')
+      .single();
+    if (!error && data) {
+      setShareLink(`${window.location.origin}/shared/${data.public_token}`);
+    }
+    setSharingLoading(false);
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareLink) return;
+    await navigator.clipboard.writeText(shareLink);
+    setCopiedShareLink(true);
+    setTimeout(() => setCopiedShareLink(false), 2000);
+  };
 
   if (loading) {
     return (
@@ -63,10 +94,19 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-6 text-sm font-medium transition-colors">
-        <ArrowLeft size={15} />
-        Back to history
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-700 text-sm font-medium transition-colors">
+          <ArrowLeft size={15} />
+          Back to history
+        </button>
+        <button
+          onClick={handleShare}
+          className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded-lg text-sm font-medium transition-all hover:bg-white"
+        >
+          <Share2 size={14} />
+          Share
+        </button>
+      </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
         <div className="flex flex-col md:flex-row md:items-start gap-6">
@@ -248,6 +288,53 @@ export default function ReviewDetail({ reviewId, onBack }: ReviewDetailProps) {
           <code>{review.code}</code>
         </pre>
       </div>
+
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center">
+                  <Share2 size={16} className="text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900">Share review</h3>
+                  <p className="text-xs text-slate-500">Anyone with the link can view this review</p>
+                </div>
+              </div>
+              <button onClick={() => setShowShareModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {sharingLoading ? (
+              <div className="flex items-center justify-center py-8 gap-3">
+                <Loader2 size={18} className="animate-spin text-blue-600" />
+                <span className="text-sm text-slate-500">Generating share link...</span>
+              </div>
+            ) : shareLink ? (
+              <div>
+                <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4">
+                  <Link size={14} className="text-slate-400 shrink-0" />
+                  <span className="flex-1 text-xs text-slate-600 font-mono truncate">{shareLink}</span>
+                </div>
+                <button
+                  onClick={handleCopyShareLink}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors"
+                >
+                  {copiedShareLink ? <CheckCircle size={15} /> : <Copy size={15} />}
+                  {copiedShareLink ? 'Link copied!' : 'Copy link'}
+                </button>
+                <p className="text-xs text-slate-400 text-center mt-3">
+                  This link will show review results but not your account details
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-red-500 text-center py-4">Failed to generate share link. Please try again.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

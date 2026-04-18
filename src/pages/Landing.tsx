@@ -1,8 +1,37 @@
-import { Code2, Zap, Shield, BarChart3, ArrowRight, CheckCircle, Star, GitBranch, Clock, Users, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Code2, Zap, Shield, BarChart3, ArrowRight, CheckCircle, Star, GitBranch, Clock, Users, ChevronRight, X, AlertTriangle, Lightbulb } from 'lucide-react';
 
 interface LandingProps {
   onGetStarted: () => void;
 }
+
+const DEMO_CODE = `async function fetchUserData(userId) {
+  const response = await fetch('/api/users/' + userId);
+  const data = response.json(); // Missing await!
+
+  if (data.password) {
+    console.log('User password:', data.password); // Security risk
+  }
+
+  var result = [];
+  for (var i = 0; i < data.items.length; i++) {
+    result.push(data.items[i]);
+  }
+  return result;
+}`;
+
+const DEMO_RESULT = {
+  score: 42,
+  summary: 'This JavaScript function has critical security vulnerabilities and missing error handling. The code exposes sensitive user data and has a missing await that will cause runtime errors.',
+  issues: [
+    { type: 'bug', severity: 'critical' as const, line: 3, title: 'Missing await on response.json()', description: 'response.json() returns a Promise. Without await, data is a Promise object, not the actual data.', suggestion: 'Change to: const data = await response.json()' },
+    { type: 'error_handling', severity: 'high' as const, line: 1, title: 'No error handling for fetch', description: 'Network errors and non-OK responses are not handled.', suggestion: 'Add try/catch and check response.ok before parsing.' },
+    { type: 'naming', severity: 'low' as const, line: 9, title: 'Use const and modern array methods', description: 'Using var and manual for-loop instead of modern JavaScript.', suggestion: 'Replace with: const result = data.items.map(item => item)' },
+  ],
+  security: [
+    { severity: 'critical' as const, title: 'Sensitive data exposure', description: 'Logging password to console exposes sensitive data in production logs.', cwe: 'CWE-312', fix: 'Remove the console.log statement. Never log sensitive user data.' },
+  ],
+};
 
 const features = [
   {
@@ -87,6 +116,22 @@ const stats = [
 ];
 
 export default function Landing({ onGetStarted }: LandingProps) {
+  const [showDemo, setShowDemo] = useState(false);
+  const [demoStep, setDemoStep] = useState<'code' | 'analyzing' | 'results'>('code');
+
+  const runDemo = () => {
+    setShowDemo(true);
+    setDemoStep('analyzing');
+    setTimeout(() => setDemoStep('results'), 2200);
+  };
+
+  const severityColors: Record<string, string> = {
+    critical: 'bg-red-100 text-red-700 border-red-200',
+    high: 'bg-orange-100 text-orange-700 border-orange-200',
+    medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+    low: 'bg-blue-100 text-blue-600 border-blue-200',
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
@@ -137,7 +182,10 @@ export default function Landing({ onGetStarted }: LandingProps) {
               Start reviewing for free
               <ArrowRight size={18} />
             </button>
-            <button className="flex items-center justify-center gap-2 px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-base transition-colors border border-slate-200">
+            <button
+              onClick={runDemo}
+              className="flex items-center justify-center gap-2 px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-base transition-colors border border-slate-200"
+            >
               See a demo
               <ChevronRight size={18} />
             </button>
@@ -307,6 +355,133 @@ export default function Landing({ onGetStarted }: LandingProps) {
           </div>
         </div>
       </footer>
+
+      {showDemo && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 sticky top-0 bg-white rounded-t-2xl z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center">
+                  <Code2 size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Live Demo</h3>
+                  <p className="text-xs text-slate-500">See CodeSense analyze real code</p>
+                </div>
+              </div>
+              <button onClick={() => { setShowDemo(false); setDemoStep('code'); }} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-slate-900 rounded-xl p-5 mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                  <span className="ml-2 text-slate-400 text-xs font-mono">fetchUserData.js</span>
+                </div>
+                <pre className="text-xs font-mono text-slate-300 leading-relaxed overflow-x-auto">
+                  <code>{DEMO_CODE}</code>
+                </pre>
+              </div>
+
+              {demoStep === 'analyzing' && (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="relative w-16 h-16 mb-5">
+                    <div className="w-16 h-16 border-3 border-blue-100 rounded-full" />
+                    <div className="absolute inset-0 w-16 h-16 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Zap size={20} className="text-blue-600" />
+                    </div>
+                  </div>
+                  <p className="font-semibold text-slate-900 mb-1">Analyzing code with Claude AI...</p>
+                  <p className="text-slate-500 text-sm">Scanning for bugs, security issues, and best practices</p>
+                </div>
+              )}
+
+              {demoStep === 'results' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <div className="relative w-16 h-16 shrink-0">
+                      <svg width="64" height="64" className="-rotate-90">
+                        <circle cx="32" cy="32" r="26" fill="none" stroke="#e2e8f0" strokeWidth="5" />
+                        <circle cx="32" cy="32" r="26" fill="none" stroke="#ef4444" strokeWidth="5"
+                          strokeDasharray={`${2 * Math.PI * 26}`}
+                          strokeDashoffset={`${2 * Math.PI * 26 * (1 - DEMO_RESULT.score / 100)}`}
+                          strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-base font-bold text-red-600">{DEMO_RESULT.score}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900 text-sm mb-1">Quality Score: {DEMO_RESULT.score}/100</p>
+                      <p className="text-slate-500 text-xs leading-relaxed">{DEMO_RESULT.summary}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50">
+                      <AlertTriangle size={14} className="text-amber-500" />
+                      <span className="font-semibold text-slate-900 text-sm">Code Issues ({DEMO_RESULT.issues.length})</span>
+                    </div>
+                    <ul className="divide-y divide-slate-100">
+                      {DEMO_RESULT.issues.map((issue, i) => (
+                        <li key={i} className="px-4 py-3">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${severityColors[issue.severity]}`}>
+                              {issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
+                            </span>
+                            <span className="text-xs text-slate-400 font-mono">Line {issue.line}</span>
+                          </div>
+                          <p className="font-medium text-slate-800 text-sm mb-0.5">{issue.title}</p>
+                          <p className="text-slate-500 text-xs mb-1.5">{issue.description}</p>
+                          <div className="bg-blue-50 rounded-lg px-3 py-1.5">
+                            <p className="text-xs text-blue-700"><span className="font-semibold">Fix: </span>{issue.suggestion}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="bg-white rounded-xl border border-red-200 overflow-hidden">
+                    <div className="flex items-center gap-2 px-4 py-3 border-b border-red-100 bg-red-50">
+                      <Shield size={14} className="text-red-500" />
+                      <span className="font-semibold text-slate-900 text-sm">Security Issues ({DEMO_RESULT.security.length})</span>
+                    </div>
+                    {DEMO_RESULT.security.map((issue, i) => (
+                      <div key={i} className="px-4 py-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${severityColors[issue.severity]}`}>
+                            {issue.severity.charAt(0).toUpperCase() + issue.severity.slice(1)}
+                          </span>
+                          <span className="text-xs text-slate-400 font-mono">{issue.cwe}</span>
+                        </div>
+                        <p className="font-medium text-slate-800 text-sm mb-0.5">{issue.title}</p>
+                        <p className="text-slate-500 text-xs mb-1.5">{issue.description}</p>
+                        <div className="bg-red-50 rounded-lg px-3 py-1.5">
+                          <p className="text-xs text-red-700"><span className="font-semibold">Remediation: </span>{issue.fix}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={onGetStarted}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all text-sm shadow-lg shadow-blue-200"
+                  >
+                    <Lightbulb size={16} />
+                    Start reviewing your own code for free
+                    <ArrowRight size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,8 @@ export interface Database {
           avatar_url: string;
           plan: 'free' | 'pro' | 'enterprise';
           reviews_count: number;
+          monthly_reviews_used: number;
+          monthly_reset_at: string;
           created_at: string;
           updated_at: string;
         };
@@ -17,6 +19,8 @@ export interface Database {
           avatar_url?: string;
           plan?: 'free' | 'pro' | 'enterprise';
           reviews_count?: number;
+          monthly_reviews_used?: number;
+          monthly_reset_at?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -25,7 +29,83 @@ export interface Database {
           avatar_url?: string;
           plan?: 'free' | 'pro' | 'enterprise';
           reviews_count?: number;
+          monthly_reviews_used?: number;
+          monthly_reset_at?: string;
           updated_at?: string;
+        };
+      };
+      notification_preferences: {
+        Row: {
+          id: string;
+          user_id: string;
+          review_completed: boolean;
+          weekly_digest: boolean;
+          security_alerts: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          review_completed?: boolean;
+          weekly_digest?: boolean;
+          security_alerts?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          review_completed?: boolean;
+          weekly_digest?: boolean;
+          security_alerts?: boolean;
+          updated_at?: string;
+        };
+      };
+      api_keys: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          key_prefix: string;
+          key_hash: string;
+          last_used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          key_prefix: string;
+          key_hash: string;
+          last_used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          name?: string;
+          last_used_at?: string | null;
+        };
+      };
+      review_shares: {
+        Row: {
+          id: string;
+          review_id: string;
+          shared_by_id: string;
+          public_token: string;
+          expires_at: string | null;
+          view_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          review_id: string;
+          shared_by_id: string;
+          public_token?: string;
+          expires_at?: string | null;
+          view_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          expires_at?: string | null;
+          view_count?: number;
         };
       };
       code_reviews: {
