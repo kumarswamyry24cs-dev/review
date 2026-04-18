@@ -245,7 +245,7 @@ export default function Landing({ onGetStarted }: LandingProps) {
               { step: '03', title: 'Get actionable feedback', description: 'Receive line-by-line suggestions with explanations and fix recommendations.' },
             ].map(item => (
               <div key={item.step} className="text-center">
-                <div className="text-7xl font-extrabold text-slate-100 mb-3">{item.step}</div>
+                <div className="text-7xl font-extrabold text-blue-100 mb-3 select-none" style={{ color: '#c7d7f9' }}>{item.step}</div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">{item.title}</h3>
                 <p className="text-slate-600 text-sm leading-relaxed">{item.description}</p>
               </div>
